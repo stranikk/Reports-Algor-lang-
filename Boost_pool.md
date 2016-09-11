@@ -102,5 +102,35 @@ int main()
 *	set_next_size() позволяет установить размер следующего блока памяти
 *	Обращение к set_next_size() изменениям размер следующего блока памяти выделить от 64 до 8 int значений.
 
+### 3) Boost::singleton_pool
+```
+#include <boost/pool/singleton_pool.hpp>
 
+struct int_pool {};
+typedef boost::singleton_pool<int_pool, sizeof(int)> singleton_int_pool;
 
+int main()
+{
+  int *i = static_cast<int*>(singleton_int_pool::malloc());
+  *i = 1;
+
+  int *j = static_cast<int*>(singleton_int_pool::ordered_malloc(10));
+  j[9] = 2;
+
+  singleton_int_pool::release_memory();
+  singleton_int_pool::purge_memory();
+}
+```
+Boost::singleton_pool определяется boost/pool/singleton_pool.hpp. Этот класс аналогичен , boost::simple_segregated_storage так как он также ожидает размер сегмента в качестве параметра шаблона , но не тип объекта , для сегмента памяти. Поэтому функции - члены , такие как ordered_malloc()и malloc() возвращают указатель типа void*, который должен быть приведен в явном виде.
+
+Этот класс также аналогичен , boost::object_pool так как он выделяет память автоматически. Размер следующего блока памяти и дополнительный максимальный размер передаются в качестве параметров шаблона. 
+* Boost::singleton_pool отличается от boost::object_pool тем , что вы не можете изменить размер следующего блока памяти в boost::singleton_pool во время выполнения.
+* 
+Вы можете создать несколько объектов с , boost::singleton_pool если вы хотите управлять несколькими пулами памяти.
+Первый параметр шаблона передаетсяboost::singleton_pool это тег . Тег произвольный тип , который служит в качестве имени для пула памяти. Пример использует структуру int_pool в качестве тега , чтобы подчеркнуть , что singleton_int_pool это пространство , которое управляет int значениями. Тег не имеет другой цели ,кроме создания отдельных экземпляров boost::singleton_pool.
+
+Boost::singleton_pool предоставляет две функции - члены , чтобы освободить память:
+* release_memory()освобождает все блоки памяти, которые не используются в данный момент
+* purge_memory()освобождает все блоки памяти - в том числе тех , которые используются в настоящее время
+
+boost::object_pool и boost::singleton_pool позволяют запрашивать память в явном виде. Вы можете сделать это с помощью вызова функций - членов , таких как malloc()или construct()
