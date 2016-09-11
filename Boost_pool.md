@@ -151,10 +151,42 @@ int main()
     purge_memory();
 }
 ```
-boost::pool_allocator определяется в boost/pool/pool_alloc.hpp. Класс является распределителем. Обычно передается в качестве второго параметра шаблона для контейнеров из стандартной библиотеки. Распределитель обеспечивает память , необходимой для контейнера.
+* boost::pool_allocator определяется в boost/pool/pool_alloc.hpp. Класс является распределителем. Обычно передается в качестве второго параметра шаблона для контейнеров из стандартной библиотеки. Распределитель обеспечивает память , необходимой для контейнера.
 
-boost::pool_allocator основана на boost::singleton_pool. Для того, чтобы освободить память, вы должны использовать тег для доступа boost::singleton_pool и так же использовать purge_memory() или release_memory().
+* boost::pool_allocator основана на boost::singleton_pool. Для того, чтобы освободить память, вы должны использовать тег для доступа boost::singleton_pool и так же использовать purge_memory() или release_memory().
 
 В примере используется тег boost::pool_allocator_tag. Этот тег определяется в Boost.Pool и используется boost::pool_allocator для внутреннего использования boost::singleton_pool.
 Когда в примере вызывает push_back() в первый раз, v обращается к аллокатору , чтобы получить требуемую память. Распределителем boost::pool_allocator используется блок памяти с пространством для 32 int значений . V принимает указатель на первый сегмент в этом блоке памяти, размером с int. С каждым последующим вызовом push_back() другой сегмент используется из блока памяти до тех пор , пока не обнаружит распределителем , что требуется больший блок памяти.
 Обратите внимание !!! , что вы должны вызвать clear() в контейнере перед тем, как освободить память с purge_memory() . Вызов purge_memory() освобождает память , но не уведомляет контейнер , что он не является владельцем памяти больше. Вызов release_memory() менее опасен , потому что он выпускает только блоки памяти, которые не используются.
+
+### 5) Boost::fast_pool_allocator
+```
+#define BOOST_POOL_NO_MT
+#include <boost/pool/pool_alloc.hpp>
+#include <list>
+
+int main()
+{
+  typedef boost::fast_pool_allocator<int,
+    boost::default_user_allocator_new_delete,
+    boost::details::pool::default_mutex,
+    64, 128> allocator;
+
+  std::list<int, allocator> l;
+  for (int i = 0; i < 1000; ++i)
+    l.push_back(i);
+
+  l.clear();
+  boost::singleton_pool<boost::fast_pool_allocator_tag, sizeof(int)>::
+    purge_memory();
+}
+```
+boost::fast_pool_allocator по факту является тем же самым что и boost::pool_allocator . Принимает те же параметры , что и boost::pool_allocator . 
+* Используется в контейнере std::list
+Пример показывает , какие параметры шаблона могут быть переданы boost::fast_pool_allocator.
+* boost::default_user_allocator_new_delete это класс , который выделяет блоки памяти с new и отпускает их delete[] 
+* Вы можете также использовать boost::default_user_allocator_malloc_free, который вызывает malloc() и free()
+* boost::details::pool::default_mutex является определение типа , который установлен boost::mutex или boost::details::pool::null_mutex
+* boost::mutex является типом по умолчанию , который поддерживает несколько потоков , запрашивающий память от распределителя
+* Если макрос BOOST_POOL_NO_MT определен как в примере , то поддержка многопоточности для Boost.Pool отключена
+* Последние два параметра , передаваемые boost::fast_pool_allocator в примере  , установить размер первого блока памяти и максимальный размер блоков памяти для выделения
